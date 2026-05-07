@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.v1.schemas.batch import BatchCreate
 from src.data.models.batch import Batch
 from src.data.repositories.batch_repository import BatchRepository
 from src.data.repositories.work_center_repository import WorkCenterRepository
+from src.domain.exceptions.exceptions import BatchAlreadyExistsError
 
 
 class BatchService:
@@ -37,7 +39,12 @@ class BatchService:
                 "shift_start": item.shift_start,
                 "shift_end": item.shift_end
             }
-            batch = await self.batch_repo.create(batch_data)
-            created.append(batch)
 
+            try:
+                batch = await self.batch_repo.create(batch_data)
+            except IntegrityError as e:
+                await self.session.rollback()
+                raise BatchAlreadyExistsError() from e
+
+            created.append(batch)
         return created

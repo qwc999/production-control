@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Optional
 
 from sqlalchemy import Integer, Boolean, DateTime, String, UniqueConstraint, Index, ForeignKey, Date
@@ -17,7 +17,7 @@ class Batch(Base):
         default=False,
         nullable=False)
 
-    closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime,
+    closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True),
         nullable=True)
 
     # Описание задания
@@ -51,19 +51,19 @@ class Batch(Base):
         nullable=False)
 
     # Временные рамки
-    shift_start: Mapped[datetime] = mapped_column(DateTime,
+    shift_start: Mapped[datetime] = mapped_column(DateTime(timezone=True),
         nullable=False)
 
-    shift_end: Mapped[datetime] = mapped_column(DateTime,
+    shift_end: Mapped[datetime] = mapped_column(DateTime(timezone=True),
         nullable=False)
 
     # Метаданные
-    created_at: Mapped[datetime] = mapped_column(DateTime,
-        default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc))
 
-    updated_at: Mapped[datetime] = mapped_column(DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc))
 
     # Связи
     products: Mapped[list["Product"]] = relationship("Product", back_populates="batch")

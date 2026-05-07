@@ -1,9 +1,16 @@
-from pydantic import BaseModel
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
 
 
 class ProductCreate(BaseModel):
     unique_code: str
     batch_id: int
 
-class ProductResponse:
-    ...
+class ProductResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    unique_code: str
+    is_aggregated: bool
+    aggregated_at: datetime | None = None

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Integer, String, DateTime
 from sqlalchemy.orm import mapped_column, Mapped, relationship
@@ -20,11 +20,11 @@ class WorkCenter(Base):
     name: Mapped[str] = mapped_column(String(500),
         nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime,
-        default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc))
 
-    updated_at: Mapped[datetime] = mapped_column(DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc))
 
     batches: Mapped[list["Batch"]] = relationship("Batch", back_populates="work_center")

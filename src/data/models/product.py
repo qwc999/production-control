@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import Integer, String, ForeignKey, DateTime, Boolean, Index
@@ -28,12 +28,12 @@ class Product(Base):
         default=False,
         index=True)
 
-    aggregated_at: Mapped[Optional[datetime]] = mapped_column(DateTime,
+    aggregated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True),
         nullable=True)
 
     # Метаданные
-    created_at: Mapped[datetime] = mapped_column(DateTime,
-        default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc))
 
     # Связи
     batch: Mapped["Batch"] = relationship("Batch", back_populates="products")

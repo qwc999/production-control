@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Annotated
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -38,7 +39,6 @@ class BatchResponse(BaseModel):
     shift_end: datetime
     created_at: datetime
     updated_at: datetime
-    # products: list[ProductResponse] = []
 
 class BatchUpdate(BaseModel):
     is_closed: bool | None = None
@@ -56,3 +56,6 @@ class BatchFilter(BaseModel):
     shift: str | None = None
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=50)
+
+class BatchDetailedResponse(BatchResponse):
+    products: Annotated[list[ProductResponse], Field(default_factory=list)]

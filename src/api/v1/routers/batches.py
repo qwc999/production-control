@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 
 from src.api.v1.dependencies import get_batch_service
-from src.api.v1.schemas.batch import BatchCreate, BatchResponse
-from src.domain.exceptions.exceptions import BatchAlreadyExistsError
+from src.api.v1.schemas.batch import BatchCreate, BatchResponse, BatchDetailedResponse
+from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError
 from src.domain.services.batch_service import BatchService
 
 router = APIRouter(prefix="/batches", tags=["Batch"])
@@ -23,5 +23,21 @@ async def create_batches(
             status_code=status.HTTP_409_CONFLICT,
             detail={
                 "message": "Batch already exists"
+            }
+        ) from e
+
+@router.get("/{batch_id}",
+            response_model=BatchDetailedResponse)
+async def get_batch(
+        batch_id: int,
+        service: BatchService = Depends(get_batch_service)
+):
+    try:
+        return await service.get_batch(batch_id)
+    except BatchNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "Batch does not exist"
             }
         ) from e

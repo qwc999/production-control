@@ -7,7 +7,7 @@ from src.api.v1.schemas.batch import BatchCreate
 from src.data.models.batch import Batch
 from src.data.repositories.batch_repository import BatchRepository
 from src.data.repositories.work_center_repository import WorkCenterRepository
-from src.domain.exceptions.exceptions import BatchAlreadyExistsError
+from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError
 
 
 class BatchService:
@@ -16,6 +16,12 @@ class BatchService:
 
         self.batch_repo = BatchRepository(session)
         self.work_center_repo = WorkCenterRepository(session)
+
+    async def get_batch(self, batch_id: int) -> Batch:
+        batch = await self.batch_repo.get_by_id_with_products(batch_id)
+        if batch is None:
+            raise BatchNotFoundError
+        return batch
 
     async def create_batches(self, items: list[BatchCreate]) -> list[Batch]:
         created = []

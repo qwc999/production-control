@@ -55,7 +55,7 @@ class BatchFilter(BaseModel):
     work_center_identifier: str | None = None
     shift: str | None = None
     offset: int = Field(default=0, ge=0)
-    limit: int = Field(default=20, ge=1, le=50)
+    limit: int = Field(default=20, ge=1, le=100)
 
 class BatchDetailedResponse(BatchResponse):
     products: Annotated[list[ProductResponse], Field(default_factory=list)]

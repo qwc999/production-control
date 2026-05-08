@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 
 from src.api.v1.dependencies import get_batch_service
-from src.api.v1.schemas.batch import BatchCreate, BatchResponse, BatchDetailedResponse, BatchUpdate
+from src.api.v1.schemas.batch import BatchCreate, BatchResponse, BatchDetailedResponse, BatchUpdate, BatchFilter
 from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError
 from src.domain.services.batch_service import BatchService
 
@@ -58,3 +58,11 @@ async def update_batch(
                 "message": "Batch does not exist"
             }
         ) from e
+
+@router.get("",
+            response_model=list[BatchResponse])
+async def get_batches(
+        filters: BatchFilter = Depends(),
+        service: BatchService = Depends(get_batch_service)
+):
+    return await service.filter_batches(filters)

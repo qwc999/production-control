@@ -22,3 +22,11 @@ class BaseRepository(Generic[T]):
 
     async def get_by_id(self, id: int) -> T | None:
         return await self.session.get(self.model, id)
+
+    async def update(self, instance: T, data: dict) -> T:
+        for k, v in data.items():
+            setattr(instance, k, v)
+
+        await self.session.commit()
+        await self.session.refresh(instance)
+        return instance

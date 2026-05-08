@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.v1.schemas.batch import BatchCreate
+from src.api.v1.schemas.batch import BatchCreate, BatchUpdate
 from src.data.models.batch import Batch
 from src.data.repositories.batch_repository import BatchRepository
 from src.data.repositories.work_center_repository import WorkCenterRepository
@@ -54,3 +54,17 @@ class BatchService:
 
             created.append(batch)
         return created
+
+    async def update_batch(self, batch_id: int, item: BatchUpdate) -> Batch:
+        batch = await self.batch_repo.get_by_id(batch_id)
+        if batch is None:
+            raise BatchNotFoundError
+
+        update_data = item.model_dump(exclude_unset=True, exclude_none=True)
+        if "is_closed" in update_data:
+            if update_data["is_closed"] is True:
+                update_data["closed_at"] = datetime.now(timezone.utc)
+            else:
+                update_data["closed_at"] = None
+
+        return await self.batch_repo.update(batch, update_data)

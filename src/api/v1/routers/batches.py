@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, status, HTTPException
 
 from src.api.v1.dependencies import get_batch_service
 from src.api.v1.schemas.batch import BatchCreate, BatchResponse, BatchDetailedResponse, BatchUpdate, BatchFilter
-from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError
+from src.api.v1.schemas.product import ProductAggregateResponse, ProductAggregateRequest
+from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError, BatchClosedError
 from src.domain.services.batch_service import BatchService
 
 router = APIRouter(prefix="/batches", tags=["Batch"])
@@ -66,3 +67,27 @@ async def get_batches(
         service: BatchService = Depends(get_batch_service)
 ):
     return await service.filter_batches(filters)
+
+@router.post("/{batch_id}/aggregate",
+             response_model=ProductAggregateResponse)
+async def aggregate_products(
+        batch_id: int,
+        item: ProductAggregateRequest,
+        service: BatchService = Depends(get_batch_service)
+):
+    try:
+        return await service.aggregate_products(batch_id, item)
+    except BatchNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "Batch does not exist"
+            }
+        ) from e
+    except BatchClosedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "BBatch is closed and cannot be edited"
+            }
+        ) from e

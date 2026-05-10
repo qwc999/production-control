@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Callable
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,7 +78,8 @@ class BatchService:
 
     async def aggregate_products(self,
                                  batch_id: int,
-                                 item: ProductAggregateRequest
+                                 unique_codes: list[str],
+                                 progress_callback: Callable[[int, int], None] | None = None
                                  ) -> ProductAggregateResponse:
         batch = await self.batch_repo.get_by_id(batch_id)
         if batch is None:
@@ -86,12 +88,12 @@ class BatchService:
             raise BatchClosedError
 
         aggregated, errors = 0, []
-        products = await self.product_repo.get_by_batch_and_codes(batch_id, item.unique_codes)
+        products = await self.product_repo.get_by_batch_and_codes(batch_id, unique_codes)
         product_by_code = {
             product.unique_code: product for product in products
         }
 
-        for code in item.unique_codes:
+        for index, code in enumerate(unique_codes, start=1):
             product = product_by_code.get(code)
             if product is None:
                 errors.append({
@@ -109,11 +111,15 @@ class BatchService:
             product.is_aggregated = True
             product.aggregated_at = datetime.now(timezone.utc)
             aggregated += 1
+
+            if progress_callback is not None:
+                progress_callback(index, len(unique_codes))
+
         await self.session.commit()
 
         return ProductAggregateResponse(
             batch_id=batch_id,
-            total=len(item.unique_codes),
+            total=len(unique_codes),
             aggregated=aggregated,
             failed=len(errors),
             errors=errors

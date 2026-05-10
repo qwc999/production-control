@@ -2,9 +2,11 @@ from fastapi import APIRouter, Depends, status, HTTPException
 
 from src.api.v1.dependencies import get_batch_service
 from src.api.v1.schemas.batch import BatchCreate, BatchResponse, BatchDetailedResponse, BatchUpdate, BatchFilter
-from src.api.v1.schemas.product import ProductAggregateResponse, ProductAggregateRequest
+from src.api.v1.schemas.product import ProductAggregateResponse, ProductAggregateRequest, ProductAggregateAsyncRequest
+from src.api.v1.schemas.tasks import TaskStatusResponse, TaskStartResponse
 from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError, BatchClosedError
 from src.domain.services.batch_service import BatchService
+from src.tasks.batch_tasks import aggregate_products_task
 
 router = APIRouter(prefix="/batches", tags=["Batch"])
 
@@ -76,7 +78,7 @@ async def aggregate_products(
         service: BatchService = Depends(get_batch_service)
 ):
     try:
-        return await service.aggregate_products(batch_id, item)
+        return await service.aggregate_products(batch_id, item.unique_codes)
     except BatchNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -91,3 +93,38 @@ async def aggregate_products(
                 "message": "BBatch is closed and cannot be edited"
             }
         ) from e
+
+@router.post("/{batch_id}/aggregate-async",
+             response_model=TaskStatusResponse,
+             status_code=status.HTTP_202_ACCEPTED)
+async def aggregate_products_async(
+        batch_id: int,
+        item: ProductAggregateAsyncRequest,
+        service: BatchService = Depends(get_batch_service)
+):
+    try:
+        batch = await service.get_batch(batch_id)
+    except BatchNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "Batch does not exist"
+            }
+        ) from e
+    if batch.is_closed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "BBatch is closed and cannot be edited"
+            }
+        )
+
+    task = aggregate_products_task.delay(
+        batch_id,
+        item.unique_codes
+    )
+    return TaskStartResponse(
+        task_id=task.id,
+        status="PENDING",
+        message="Task started"
+    )

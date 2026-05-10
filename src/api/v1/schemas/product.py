@@ -24,3 +24,7 @@ class ProductAggregateResponse(BaseModel):
     aggregated: int
     failed: int
     errors: list[dict]
+
+class ProductAggregateAsyncRequest(BaseModel):
+    unique_codes: list[str] = Field(min_length=1)
+    

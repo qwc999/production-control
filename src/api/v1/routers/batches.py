@@ -3,10 +3,13 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from src.api.v1.dependencies import get_batch_service
 from src.api.v1.schemas.batch import BatchCreate, BatchResponse, BatchDetailedResponse, BatchUpdate, BatchFilter
 from src.api.v1.schemas.product import ProductAggregateResponse, ProductAggregateRequest, ProductAggregateAsyncRequest
+from src.api.v1.schemas.reports import BatchReportRequest
 from src.api.v1.schemas.tasks import TaskStatusResponse, TaskStartResponse
 from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError, BatchClosedError
 from src.domain.services.batch_service import BatchService
 from src.tasks.batch_tasks import aggregate_products_task
+from src.tasks.report_tasks import generate_batch_reports_task
+
 
 router = APIRouter(prefix="/batches", tags=["Batch"])
 
@@ -122,6 +125,32 @@ async def aggregate_products_async(
     task = aggregate_products_task.delay(
         batch_id,
         item.unique_codes
+    )
+    return TaskStartResponse(
+        task_id=task.id,
+        status="PENDING",
+        message="Task started"
+    )
+
+@router.post("/{batch_id}/reports",
+             response_model=TaskStatusResponse,
+             status_code=status.HTTP_202_ACCEPTED)
+async def generate_batch_report(
+        batch_id: int,
+        item: BatchReportRequest,
+        service: BatchService = Depends(get_batch_service)
+):
+    try:
+        await service.get_batch(batch_id)
+    except BatchNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "Batch does not exist"},
+        ) from e
+
+    task = generate_batch_reports_task.delay(
+        batch_id,
+        item.format
     )
     return TaskStartResponse(
         task_id=task.id,

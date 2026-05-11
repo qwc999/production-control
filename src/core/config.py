@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     database_url: PostgresDsn
     celery_broker_url: str
     celery_result_backend: str
+    minio_endpoint: str
+    minio_access_key: str
+    minio_secret_key: str
+    minio_secure: bool
+    minio_reports_bucket: str
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,8 +1,9 @@
-from sqlalchemy import select
+from sqlalchemy import select, Select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.api.v1.schemas.batch import BatchFilter
+from src.api.v1.schemas.exports import BatchExportFilter
 from src.data.models import WorkCenter
 from src.data.models.batch import Batch
 from src.data.repositories.base_repository import BaseRepository
@@ -23,6 +24,28 @@ class BatchRepository(BaseRepository[Batch]):
 
     async def get_by_filter(self, filters: BatchFilter) -> list[Batch]:
         query = select(Batch)
+        query = await self._apply_filters(query, filters)
+
+        query = (query.
+                 order_by(Batch.id).
+                 offset(filters.offset).
+                 limit(filters.limit))
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def get_by_filter_for_export(self, filters: BatchExportFilter) -> list[Batch]:
+        query = select(Batch)
+        query = await self._apply_filters(query, filters)
+
+        query = (query.order_by(Batch.id))
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def _apply_filters(
+            self,
+            query: Select,
+            filters: BatchFilter | BatchExportFilter
+    ) -> Select:
         if filters.is_closed is not None:
             query = query.where(Batch.is_closed == filters.is_closed)
 
@@ -41,10 +64,4 @@ class BatchRepository(BaseRepository[Batch]):
 
         if filters.shift is not None:
             query = query.where(Batch.shift == filters.shift)
-
-        query = (query.
-                 order_by(Batch.id).
-                 offset(filters.offset).
-                 limit(filters.limit))
-        result = await self.session.execute(query)
-        return list(result.scalars().all())
+        return query

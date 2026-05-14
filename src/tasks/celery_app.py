@@ -9,7 +9,8 @@ celery_app = Celery(
     include=[
         "src.tasks.batch_tasks",
         "src.tasks.report_tasks",
-        "src.tasks.import_tasks"
+        "src.tasks.import_tasks",
+        "src.tasks.export_tasks"
     ]
 )
 

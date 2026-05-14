@@ -9,7 +9,7 @@ from src.tasks.celery_app import celery_app
 from src.tasks.database import celery_async_session_maker
 
 
-@celery_app.task(bind=True, max_retries=1)
+@celery_app.task(bind=True, max_retries=1, name="reports.import_batches_from_file")
 def import_batches_from_file_task(
     self,
     object_name: str

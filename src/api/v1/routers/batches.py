@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File
 
 from src.api.v1.dependencies import get_batch_service
 from src.api.v1.schemas.batch import BatchCreate, BatchResponse, BatchDetailedResponse, BatchUpdate, BatchFilter
+from src.api.v1.schemas.exports import BatchExportFilter
 from src.api.v1.schemas.product import ProductAggregateResponse, ProductAggregateRequest, ProductAggregateAsyncRequest
 from src.api.v1.schemas.reports import BatchReportRequest
 from src.api.v1.schemas.tasks import TaskStatusResponse, TaskStartResponse
@@ -14,6 +15,7 @@ from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFo
 from src.domain.services.batch_service import BatchService
 from src.storage.minio_service import MinioService
 from src.tasks.batch_tasks import aggregate_products_task
+from src.tasks.export_tasks import export_batches_to_csv_task
 from src.tasks.import_tasks import import_batches_from_file_task
 from src.tasks.report_tasks import generate_batch_reports_task
 
@@ -64,6 +66,18 @@ async def import_batches_from_file(file: UploadFile(...) = File(...)):
             object_name=object_name,
         )
     task = import_batches_from_file_task.delay(object_name)
+
+    return TaskStartResponse(
+        task_id=task.id,
+        status="PENDING",
+        message="Task started"
+    )
+
+@router.post("/export",
+             response_model=TaskStartResponse,
+             status_code=status.HTTP_202_ACCEPTED)
+async def export_batches(filters: BatchExportFilter):
+    task = export_batches_to_csv_task.delay(filters.model_dump())
 
     return TaskStartResponse(
         task_id=task.id,

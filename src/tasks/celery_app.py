@@ -8,7 +8,8 @@ celery_app = Celery(
     backend=settings.celery_result_backend,
     include=[
         "src.tasks.batch_tasks",
-        "src.tasks.report_tasks"
+        "src.tasks.report_tasks",
+        "src.tasks.import_tasks"
     ]
 )
 

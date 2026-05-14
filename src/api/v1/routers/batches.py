@@ -1,13 +1,20 @@
-from fastapi import APIRouter, Depends, status, HTTPException
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File
 
 from src.api.v1.dependencies import get_batch_service
 from src.api.v1.schemas.batch import BatchCreate, BatchResponse, BatchDetailedResponse, BatchUpdate, BatchFilter
 from src.api.v1.schemas.product import ProductAggregateResponse, ProductAggregateRequest, ProductAggregateAsyncRequest
 from src.api.v1.schemas.reports import BatchReportRequest
 from src.api.v1.schemas.tasks import TaskStatusResponse, TaskStartResponse
+from src.core.config import settings
 from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError, BatchClosedError
 from src.domain.services.batch_service import BatchService
+from src.storage.minio_service import MinioService
 from src.tasks.batch_tasks import aggregate_products_task
+from src.tasks.import_tasks import import_batches_from_file_task
 from src.tasks.report_tasks import generate_batch_reports_task
 
 
@@ -31,6 +38,38 @@ async def create_batches(
                 "message": "Batch already exists"
             }
         ) from e
+
+@router.post("/import",
+             response_model=TaskStartResponse,
+             status_code=status.HTTP_202_ACCEPTED)
+async def import_batches_from_file(file: UploadFile(...) = File(...)):
+    if file.filename is None or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "Only CSV files are supported",
+            },
+        )
+
+    object_name = f"batch_imports/{uuid4()}_{file.filename}"
+
+    with TemporaryDirectory() as temp_dir:
+        file_path = Path(temp_dir) / file.filename
+        file_path.write_bytes(await file.read())
+
+        storage = MinioService()
+        storage.upload_file(
+            bucket_name=settings.minio_imports_bucket,
+            file_path=str(file_path),
+            object_name=object_name,
+        )
+    task = import_batches_from_file_task.delay(object_name)
+
+    return TaskStartResponse(
+        task_id=task.id,
+        status="PENDING",
+        message="Task started"
+    )
 
 @router.get("/{batch_id}",
             response_model=BatchDetailedResponse)

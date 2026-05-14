@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     minio_secret_key: str
     minio_secure: bool
     minio_reports_bucket: str
+    minio_imports_bucket: str
 
     model_config = SettingsConfigDict(
         env_file=".env",

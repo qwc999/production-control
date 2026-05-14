@@ -38,3 +38,15 @@ class MinioService:
             object_name=object_name,
             expires=timedelta(days=expires_days)
         )
+
+    def download_file(
+            self,
+            bucket_name: str,
+            file_path: str,
+            object_name: str,
+    ) -> None:
+        self.client.fget_object(
+            bucket_name=bucket_name,
+            file_path=file_path,
+            object_name=object_name
+        )

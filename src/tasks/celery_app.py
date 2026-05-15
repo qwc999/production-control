@@ -29,6 +29,11 @@ celery_app.conf.update(
             "task": "schedule.auto_close_expired_batches",
             "schedule": crontab(hour=1, minute=0)
             # "schedule": 30.0
+        },
+        "cleanup-old-files": {
+            "task": "schedule.cleanup_old_files",
+            "schedule": crontab(hour=2, minute=0)
+            # "schedule": 30.0
         }
     }
 )

@@ -50,3 +50,22 @@ class MinioService:
             file_path=file_path,
             object_name=object_name
         )
+
+    def list_files(
+            self,
+            bucket_name: str,
+            prefix: str | None = None
+    ):
+        self.ensure_bucket(bucket_name)
+        return self.client.list_objects(
+            bucket_name=bucket_name,
+            prefix=prefix,
+            recursive=True
+        )
+
+    def delete_file(
+            self,
+            bucket_name: str,
+            object_name: str
+    ) -> None:
+        self.client.remove_object(bucket_name, object_name)

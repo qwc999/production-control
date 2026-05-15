@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import select, Select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -40,6 +42,20 @@ class BatchRepository(BaseRepository[Batch]):
         query = (query.order_by(Batch.id))
         result = await self.session.execute(query)
         return list(result.scalars().all())
+
+    async def close_expired_batches(self, now: datetime) -> int:
+        query = (select(Batch).
+                 where(Batch.is_closed.is_(False)).
+                 where(Batch.shift_end <= now))
+
+        result = await self.session.execute(query)
+        batches = list(result.scalars().all())
+        for batch in batches:
+            batch.is_closed = True
+            batch.closed_at = now
+
+        await self.session.commit()
+        return len(batches)
 
     async def _apply_filters(
             self,

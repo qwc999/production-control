@@ -1,13 +1,16 @@
 from datetime import datetime, timezone
+from typing import Callable
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.v1.schemas.batch import BatchCreate, BatchUpdate, BatchFilter
+from src.api.v1.schemas.product import ProductAggregateResponse, ProductAggregateRequest
 from src.data.models.batch import Batch
 from src.data.repositories.batch_repository import BatchRepository
+from src.data.repositories.product_repository import ProductRepository
 from src.data.repositories.work_center_repository import WorkCenterRepository
-from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError
+from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError, BatchClosedError
 
 
 class BatchService:
@@ -16,6 +19,7 @@ class BatchService:
 
         self.batch_repo = BatchRepository(session)
         self.work_center_repo = WorkCenterRepository(session)
+        self.product_repo = ProductRepository(session)
 
     async def get_batch(self, batch_id: int) -> Batch:
         batch = await self.batch_repo.get_by_id_with_products(batch_id)
@@ -71,3 +75,52 @@ class BatchService:
 
     async def filter_batches(self, filters: BatchFilter) -> list[Batch]:
         return await self.batch_repo.get_by_filter(filters)
+
+    async def aggregate_products(self,
+                                 batch_id: int,
+                                 unique_codes: list[str],
+                                 progress_callback: Callable[[int, int], None] | None = None
+                                 ) -> ProductAggregateResponse:
+        batch = await self.batch_repo.get_by_id(batch_id)
+        if batch is None:
+            raise BatchNotFoundError
+        if batch.is_closed:
+            raise BatchClosedError
+
+        aggregated, errors = 0, []
+        products = await self.product_repo.get_by_batch_and_codes(batch_id, unique_codes)
+        product_by_code = {
+            product.unique_code: product for product in products
+        }
+
+        for index, code in enumerate(unique_codes, start=1):
+            product = product_by_code.get(code)
+            if product is None:
+                errors.append({
+                    "code": code,
+                    "message": "Product not found"
+                })
+                continue
+            if product.is_aggregated:
+                errors.append({
+                    "code": code,
+                    "message": "Product is already aggregated"
+                })
+                continue
+
+            product.is_aggregated = True
+            product.aggregated_at = datetime.now(timezone.utc)
+            aggregated += 1
+
+            if progress_callback is not None:
+                progress_callback(index, len(unique_codes))
+
+        await self.session.commit()
+
+        return ProductAggregateResponse(
+            batch_id=batch_id,
+            total=len(unique_codes),
+            aggregated=aggregated,
+            failed=len(errors),
+            errors=errors
+        )

@@ -4,12 +4,14 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File
 
-from src.api.v1.dependencies import get_batch_service
+from src.api.v1.dependencies import get_batch_service, get_cache
 from src.api.v1.schemas.batch import BatchCreate, BatchResponse, BatchDetailedResponse, BatchUpdate, BatchFilter
 from src.api.v1.schemas.exports import BatchExportFilter
 from src.api.v1.schemas.product import ProductAggregateResponse, ProductAggregateRequest, ProductAggregateAsyncRequest
 from src.api.v1.schemas.reports import BatchReportRequest
 from src.api.v1.schemas.tasks import TaskStatusResponse, TaskStartResponse
+from src.cache.cache_keys import batch_detail_key, batches_list_key
+from src.cache.redis_cache import RedisCache
 from src.core.config import settings
 from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError, BatchClosedError
 from src.domain.services.batch_service import BatchService
@@ -28,11 +30,11 @@ router = APIRouter(prefix="/batches", tags=["Batch"])
              status_code=status.HTTP_201_CREATED)
 async def create_batches(
         items: list[BatchCreate],
-        service: BatchService = Depends(get_batch_service)
+        service: BatchService = Depends(get_batch_service),
+        cache: RedisCache = Depends(get_cache)
 ):
     try:
         batches = await service.create_batches(items)
-        return batches
     except BatchAlreadyExistsError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -40,6 +42,9 @@ async def create_batches(
                 "message": "Batch already exists"
             }
         ) from e
+
+    await cache.delete_pattern("batches_list:*")
+    return batches
 
 @router.post("/import",
              response_model=TaskStartResponse,
@@ -89,10 +94,16 @@ async def export_batches(filters: BatchExportFilter):
             response_model=BatchDetailedResponse)
 async def get_batch(
         batch_id: int,
-        service: BatchService = Depends(get_batch_service)
+        service: BatchService = Depends(get_batch_service),
+        cache: RedisCache = Depends(get_cache)
 ):
+    cache_key = batch_detail_key(batch_id)
+    cached_batch = await cache.get(cache_key)
+    if cached_batch is not None:
+        return cached_batch
+
     try:
-        return await service.get_batch(batch_id)
+        batch = await service.get_batch(batch_id)
     except BatchNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -100,16 +111,27 @@ async def get_batch(
                 "message": "Batch does not exist"
             }
         ) from e
+
+    response = BatchDetailedResponse.model_validate(batch).model_dump(mode="json")
+
+    await cache.set(
+        key=cache_key,
+        value=response,
+        ttl=600
+    )
+
+    return response
 
 @router.patch("/{batch_id}",
             response_model=BatchResponse)
 async def update_batch(
         batch_id: int,
         item: BatchUpdate,
-        service: BatchService = Depends(get_batch_service)
+        service: BatchService = Depends(get_batch_service),
+        cache: RedisCache = Depends(get_cache)
 ):
     try:
-        return await service.update_batch(batch_id, item)
+        batch = await service.update_batch(batch_id, item)
     except BatchNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -118,23 +140,44 @@ async def update_batch(
             }
         ) from e
 
+    await cache.delete(batch_detail_key(batch_id))
+    await cache.delete_pattern("batches_list:*")
+
+    return batch
+
 @router.get("",
             response_model=list[BatchResponse])
 async def get_batches(
         filters: BatchFilter = Depends(),
-        service: BatchService = Depends(get_batch_service)
+        service: BatchService = Depends(get_batch_service),
+        cache: RedisCache = Depends(get_cache)
 ):
-    return await service.filter_batches(filters)
+    cache_key = batches_list_key(filters)
+    cached_keys = await cache.get(cache_key)
+    if cached_keys is not None:
+        return cached_keys
+
+    batches = await service.filter_batches(filters)
+
+    response = [BatchResponse.model_validate(batch).model_dump(mode="json") for batch in batches]
+    await cache.set(
+        key=cache_key,
+        value=response,
+        ttl=60
+    )
+
+    return response
 
 @router.post("/{batch_id}/aggregate",
              response_model=ProductAggregateResponse)
 async def aggregate_products(
         batch_id: int,
         item: ProductAggregateRequest,
-        service: BatchService = Depends(get_batch_service)
+        service: BatchService = Depends(get_batch_service),
+        cache: RedisCache = Depends(get_cache)
 ):
     try:
-        return await service.aggregate_products(batch_id, item.unique_codes)
+        result = await service.aggregate_products(batch_id, item.unique_codes)
     except BatchNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -149,6 +192,10 @@ async def aggregate_products(
                 "message": "BBatch is closed and cannot be edited"
             }
         ) from e
+
+    await cache.delete(batch_detail_key(batch_id))
+
+    return result
 
 @router.post("/{batch_id}/aggregate-async",
              response_model=TaskStatusResponse,

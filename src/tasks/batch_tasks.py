@@ -1,5 +1,7 @@
 import asyncio
 
+from src.cache.cache_keys import batch_detail_key
+from src.cache.redis_cache import RedisCache
 from src.tasks.database import celery_async_session_maker
 
 from src.domain.exceptions.exceptions import BatchNotFoundError, BatchClosedError
@@ -66,6 +68,12 @@ async def _aggregate_products(task, batch_id: int, unique_codes: list[str]) -> d
                     for code in unique_codes
                 ],
             }
+
+        cache = RedisCache()
+        try:
+            await cache.delete(batch_detail_key(batch_id))
+        finally:
+            await cache.close()
 
         return {
             "success": True,

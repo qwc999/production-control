@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     minio_reports_bucket: str
     minio_imports_bucket: str
     minio_exports_bucket: str
+    redis_cache_url: str
 
     model_config = SettingsConfigDict(
         env_file=".env",

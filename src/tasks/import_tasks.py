@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from src.cache.redis_cache import RedisCache
 from src.core.config import settings
 from src.domain.services.import_service import ImportService
 from src.storage.minio_service import MinioService
@@ -33,7 +34,7 @@ async def _import_batches_from_file(task, object_name: str) -> dict:
 
         async with celery_async_session_maker() as session:
             service = ImportService(session)
-            return await service.import_batches_from_csv(
+            result = await service.import_batches_from_csv(
                 file_path=file_path,
                 callback=lambda current, total, created, skipped: task.update_state(
                     state="PROGRESS",
@@ -46,3 +47,11 @@ async def _import_batches_from_file(task, object_name: str) -> dict:
                     },
                 )
             )
+
+            cache = RedisCache()
+            try:
+                await cache.delete_pattern("batches_list:*")
+            finally:
+                await cache.close()
+
+            return result

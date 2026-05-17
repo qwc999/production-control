@@ -21,3 +21,11 @@ def batches_list_key(filters: BatchFilter) -> str:
 
     key_hash = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
     return f"batches_list:{key_hash}"
+
+
+def dashboard_key() -> str:
+    return "dashboard_stats"
+
+
+def batch_statistics_key(batch_id: int) -> str:
+    return f"batch_statistics:{batch_id}"

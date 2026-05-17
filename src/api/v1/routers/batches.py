@@ -49,7 +49,7 @@ async def create_batches(
 @router.post("/import",
              response_model=TaskStartResponse,
              status_code=status.HTTP_202_ACCEPTED)
-async def import_batches_from_file(file: UploadFile(...) = File(...)):
+async def import_batches_from_file(file: UploadFile = File(...)):
     if file.filename is None or not file.filename.lower().endswith(".csv"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

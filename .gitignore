@@ -55,3 +55,6 @@ venv.bak/
 .docker_data
 
 /alembic/versions/*
+
+celerybeat-schedule
+celerybeat-schedule.*

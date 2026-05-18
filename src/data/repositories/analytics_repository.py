@@ -114,7 +114,7 @@ class AnalyticsRepository:
                     "aggregation_rate": aggregation_rate
                 }
             )
-            return rows
+        return rows
 
     async def count_products_by_batch(self, batch_id: int) -> dict:
         total_query = (select(func.count(Product.id).where(Product.batch_id == batch_id)))

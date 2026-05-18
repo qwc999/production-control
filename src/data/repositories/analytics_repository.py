@@ -38,10 +38,10 @@ class AnalyticsRepository:
         }
 
     async def count_today(self, day: datetime) -> dict:
-        batches_created_query = select(func.count(Batch.id).where(Batch.created_at >= day))
-        batches_closed_query = select(func.count(Batch.id).where(Batch.closed_at >= day))
-        products_added_query = select(func.count(Product.id).where(Product.created_at >= day))
-        products_aggregated_query = select(func.count(Product.id).where(Product.aggregated_at >= day))
+        batches_created_query = select(func.count(Batch.id)).where(Batch.created_at >= day)
+        batches_closed_query = select(func.count(Batch.id)).where(Batch.closed_at >= day)
+        products_added_query = select(func.count(Product.id)).where(Product.created_at >= day)
+        products_aggregated_query = select(func.count(Product.id)).where(Product.aggregated_at >= day)
 
         batches_created = await self.session.scalar(batches_created_query)
         batches_closed = await self.session.scalar(batches_closed_query)
@@ -61,9 +61,12 @@ class AnalyticsRepository:
                 Batch.shift,
                 func.count(distinct(Batch.id)).label("batches"),
                 func.count(Product.id).label("products"),
-                func.count(Product.id).where(Product.is_aggregated.is_(True)).label("aggregated")
+                func.count(Product.id)
+                .filter(Product.is_aggregated.is_(True))
+                .label("aggregated"),
             )
-            .select_from(Batch).outerjoin(Product, Product.batch_id == Batch.id)
+            .select_from(Batch)
+            .outerjoin(Product, Product.batch_id == Batch.id)
             .group_by(Batch.shift)
             .order_by(Batch.shift)
         )
@@ -85,15 +88,15 @@ class AnalyticsRepository:
                 WorkCenter.name,
                 func.count(distinct(Batch.id)).label("batches_count"),
                 func.count(Product.id).label("products_count"),
-                func.coalesce(func.sum(
-                    case((Product.is_aggregated.is_(True), 1),
-                    else_=0,
-                ), 0)).label("aggregated_products")
+                func.count(Product.id)
+                .filter(Product.is_aggregated.is_(True))
+                .label("aggregated_products"),
             )
             .select_from(WorkCenter)
             .join(Batch, Batch.work_center_id == WorkCenter.id)
             .outerjoin(Product, Product.batch_id == Batch.id)
-            .group_by(func.count(distinct(Batch.id)).desc())
+            .group_by(WorkCenter.identifier, WorkCenter.name)
+            .order_by(func.count(distinct(Batch.id)).desc())
             .limit(limit)
         )
         result = await self.session.execute(query)

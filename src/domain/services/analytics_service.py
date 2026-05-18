@@ -23,7 +23,7 @@ class AnalyticsService:
         by_shift = await self.analytics_repo.get_stats_by_shift()
         top_work_centers = await self.analytics_repo.get_top_work_centers()
 
-        aggregation_rate = (round(product_count["aggregated"] / product_count["total"] * 100 / 2, 2)
+        aggregation_rate = (round(product_count["aggregated"] / product_count["total"] * 100, 2)
                             if product_count["total"] else 0)
 
         return {

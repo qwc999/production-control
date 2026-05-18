@@ -1,5 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
+
+from src.api.v1.routers.analytics import router as analytics_router
 from src.api.v1.routers.batches import router as batches_router
 from src.api.v1.routers.products import router as products_router
 from src.api.v1.routers.tasks import router as tasks_router
@@ -10,6 +12,7 @@ app = FastAPI()
 app.include_router(batches_router)
 app.include_router(products_router)
 app.include_router(tasks_router)
+app.include_router(analytics_router)
 
 
 if __name__ == "__main__":

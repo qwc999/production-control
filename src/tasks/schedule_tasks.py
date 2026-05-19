@@ -25,6 +25,8 @@ async def _auto_close_expired_batches(task):
 
         cache = RedisCache()
         try:
+            await cache.delete(dashboard_key())
+            await cache.delete_pattern("batch_statistics:*")
             await cache.delete_pattern("batches_list:*")
             await cache.delete_pattern("batch_detail:*")
         finally:

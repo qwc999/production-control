@@ -2,7 +2,7 @@ from fastapi import APIRouter, status, Depends, HTTPException
 
 from src.api.v1.dependencies import get_product_service, get_cache
 from src.api.v1.schemas.product import ProductResponse, ProductCreate
-from src.cache.cache_keys import batch_detail_key
+from src.cache.cache_keys import batch_detail_key, dashboard_key, batch_statistics_key
 from src.cache.redis_cache import RedisCache
 from src.domain.exceptions.exceptions import ProductAlreadyExistsError, BatchNotFoundError
 from src.domain.services.product_service import ProductService
@@ -36,5 +36,7 @@ async def create_product(
         ) from e
 
     await cache.delete(batch_detail_key(item.batch_id))
+    await cache.delete(batch_statistics_key(item.batch_id))
+    await cache.delete(dashboard_key())
 
     return product

@@ -1,8 +1,9 @@
-from datetime import datetime
+from datetime import datetime, date
 
 from pydantic import BaseModel
 
 
+# DASHBOARD STATS
 class DashboardSummary(BaseModel):
     total_batches: int
     active_batches: int
@@ -39,3 +40,32 @@ class DashboardStatisticsResponse(BaseModel):
     by_shift: dict[str, DashboardShiftStats]
     top_work_centers: list[DashboardWorkCenterStats]
     cached_at: datetime
+
+
+# BATCH STATS
+class BatchStatisticsBatchInfo(BaseModel):
+    id: int
+    team: str
+    batch_number: int
+    batch_date: date
+    is_closed: bool
+
+
+class BatchProductionStats(BaseModel):
+    total_products: int
+    aggregated: int
+    remaining: int
+    aggregation_rate: float
+
+
+class BatchTimelineStats(BaseModel):
+    shift_duration_hours: float
+    elapsed_hours: float
+    products_per_hour: float
+    estimated_completion: datetime | None = None
+
+
+class BatchStatisticsResponse(BaseModel):
+    batch_info: BatchStatisticsBatchInfo
+    production_stats: BatchProductionStats
+    timeline: BatchTimelineStats

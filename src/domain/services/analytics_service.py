@@ -51,7 +51,7 @@ class AnalyticsService:
         total_products = product_count["total"]
         aggregated = product_count["aggregated"]
         remaining = total_products - aggregated
-        aggregation_rate = (round(aggregated / total_products * 100 / 2, 2)
+        aggregation_rate = (round(aggregated / total_products * 100, 2)
                             if total_products else 0)
         now = datetime.now(timezone.utc)
         shift_end, shift_start = batch.shift_end, batch.shift_start

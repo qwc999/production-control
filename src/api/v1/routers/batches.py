@@ -4,16 +4,18 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File
 
-from src.api.v1.dependencies import get_batch_service, get_cache
+from src.api.v1.dependencies import get_batch_service, get_cache, get_analytics_service
+from src.api.v1.schemas.analytics import BatchStatisticsResponse
 from src.api.v1.schemas.batch import BatchCreate, BatchResponse, BatchDetailedResponse, BatchUpdate, BatchFilter
 from src.api.v1.schemas.exports import BatchExportFilter
 from src.api.v1.schemas.product import ProductAggregateResponse, ProductAggregateRequest, ProductAggregateAsyncRequest
 from src.api.v1.schemas.reports import BatchReportRequest
 from src.api.v1.schemas.tasks import TaskStatusResponse, TaskStartResponse
-from src.cache.cache_keys import batch_detail_key, batches_list_key
+from src.cache.cache_keys import batch_detail_key, batches_list_key, dashboard_key, batch_statistics_key
 from src.cache.redis_cache import RedisCache
 from src.core.config import settings
 from src.domain.exceptions.exceptions import BatchAlreadyExistsError, BatchNotFoundError, BatchClosedError
+from src.domain.services.analytics_service import AnalyticsService
 from src.domain.services.batch_service import BatchService
 from src.storage.minio_service import MinioService
 from src.tasks.batch_tasks import aggregate_products_task
@@ -44,7 +46,39 @@ async def create_batches(
         ) from e
 
     await cache.delete_pattern("batches_list:*")
+    await cache.delete_pattern(dashboard_key())
     return batches
+
+@router.get("/{batch_id}/statistics",
+            response_model=BatchStatisticsResponse)
+async def get_batch_statistics(
+        batch_id: int,
+        service: AnalyticsService = Depends(get_analytics_service),
+        cache: RedisCache = Depends(get_cache)
+):
+    cache_key = batch_statistics_key(batch_id)
+    cached_statistics = await cache.get(cache_key)
+    if cached_statistics is not None:
+        return cached_statistics
+
+    try:
+        statistics = await service.get_batch_statistics(batch_id)
+    except BatchNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "Batch does not exist"
+            }
+        ) from e
+
+    response = BatchStatisticsResponse.model_validate(statistics).model_dump(mode="json")
+    await cache.set(
+        key=cache_key,
+        value=response,
+        ttl=300
+    )
+
+    return response
 
 @router.post("/import",
              response_model=TaskStartResponse,
@@ -141,6 +175,8 @@ async def update_batch(
         ) from e
 
     await cache.delete(batch_detail_key(batch_id))
+    await cache.delete(batch_statistics_key(batch_id))
+    await cache.delete(dashboard_key())
     await cache.delete_pattern("batches_list:*")
 
     return batch
@@ -194,6 +230,8 @@ async def aggregate_products(
         ) from e
 
     await cache.delete(batch_detail_key(batch_id))
+    await cache.delete(batch_statistics_key(batch_id))
+    await cache.delete(dashboard_key())
 
     return result
 

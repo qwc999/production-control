@@ -117,8 +117,8 @@ class AnalyticsRepository:
         return rows
 
     async def count_products_by_batch(self, batch_id: int) -> dict:
-        total_query = (select(func.count(Product.id).where(Product.batch_id == batch_id)))
-        aggregated_query = (select(func.count(Product.id).where(Product.batch_id == batch_id))
+        total_query = (select(func.count(Product.id)).where(Product.batch_id == batch_id))
+        aggregated_query = (select(func.count(Product.id)).where(Product.batch_id == batch_id)
                             .where(Product.is_aggregated.is_(True)))
 
         total = await self.session.scalar(total_query)

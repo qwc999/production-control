@@ -34,6 +34,11 @@ celery_app.conf.update(
             "task": "schedule.cleanup_old_files",
             "schedule": crontab(hour=2, minute=0)
             # "schedule": 30.0
-        }
+        },
+        "update_statistics": {
+            "task": "schedule.update_cached_statistics",
+            "schedule": crontab(minute="*/5")
+            # "schedule": 30.0
+        },
     }
 )

@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from src.cache.cache_keys import dashboard_key
 from src.cache.redis_cache import RedisCache
 from src.core.config import settings
 from src.domain.services.import_service import ImportService
@@ -51,6 +52,7 @@ async def _import_batches_from_file(task, object_name: str) -> dict:
             cache = RedisCache()
             try:
                 await cache.delete_pattern("batches_list:*")
+                await cache.delete(dashboard_key())
             finally:
                 await cache.close()
 

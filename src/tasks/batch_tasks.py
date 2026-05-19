@@ -1,6 +1,6 @@
 import asyncio
 
-from src.cache.cache_keys import batch_detail_key
+from src.cache.cache_keys import batch_detail_key, dashboard_key, batch_statistics_key
 from src.cache.redis_cache import RedisCache
 from src.tasks.database import celery_async_session_maker
 
@@ -72,6 +72,8 @@ async def _aggregate_products(task, batch_id: int, unique_codes: list[str]) -> d
         cache = RedisCache()
         try:
             await cache.delete(batch_detail_key(batch_id))
+            await cache.delete(batch_statistics_key(batch_id))
+            await cache.delete(dashboard_key())
         finally:
             await cache.close()
 
